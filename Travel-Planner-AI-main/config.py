@@ -5,7 +5,7 @@ import os
 class Config:
     PROVIDER = os.environ.get("PROVIDER", "gemini").lower()
 
-    GEMINI_API_KEY = "AIzaSyC4qYHrjZLRWLxHj4Yn5P-hjnEx6pN7Wr0"
+    GEMINI_API_KEY = "Your API Key"
     GEMINI_MODEL = "gemini-2.5-flash"
 
     # OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
