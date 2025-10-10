@@ -192,14 +192,12 @@ client = get_ai_client()
 # ==================================
 
 if 'user' not in st.session_state:
-    # UI FIX: Create columns first
     auth_cols = st.columns((1, 1.5), gap="large")
     
     with auth_cols[0]:
-        # UI FIX: Moved title and subtitle inside the column
         st.title("Welcome to 🧠 Brainstorm Buddy")
         st.markdown("### Your personal AI-powered learning companion.")
-        st.write("") # Spacer
+        st.write("") 
 
         choice = st.radio("Choose Action", ["Login", "Sign Up"], label_visibility="collapsed")
 
@@ -234,7 +232,6 @@ if 'user' not in st.session_state:
                         st.success("Account created successfully! Welcome.")
                         st.rerun()
     with auth_cols[1]:
-        # UI FIX: Added spacers to vertically align the content
         st.write("<br><br><br><br>", unsafe_allow_html=True)
         st.subheader("Master Any Subject with AI")
         
@@ -264,7 +261,6 @@ else:
                 for page in pdf.pages: text += page.extract_text() or ""
                 return text
             except Exception: return ""
-        # Fallback for other text-based files
         try:
             return uploaded_file.read().decode("utf-8")
         except:
@@ -294,25 +290,21 @@ else:
         """Calculates the user's daily study streak."""
         today = datetime.date.today()
         
-        # Get all unique dates the user studied
         study_dates = db.query(func.date(StudyTopic.timestamp)).filter(
             StudyTopic.user_id == user_id
         ).distinct().order_by(func.date(StudyTopic.timestamp).desc()).all()
         
-        # Extract just the date objects
         study_dates = [d[0] for d in study_dates]
         
         if not study_dates:
             return 0
 
-        # Check if the most recent study day is today or yesterday
         if study_dates[0] not in [today, today - datetime.timedelta(days=1)]:
             return 0
 
         streak = 0
         expected_date = today
         
-        # If the last study session wasn't today, start checking from yesterday
         if study_dates[0] == today - datetime.timedelta(days=1):
             expected_date = today - datetime.timedelta(days=1)
 
@@ -321,7 +313,6 @@ else:
                 streak += 1
                 expected_date -= datetime.timedelta(days=1)
             else:
-                # Break if there's a gap in the dates
                 break
                 
         return streak
@@ -366,7 +357,7 @@ else:
         
         st.markdown("---")
         st.subheader("Contribute")
-        st.markdown("Love this project? We're open source! Feel free to contribute on [GitHub](https://github.com/your-username/your-repo-name).", unsafe_allow_html=True)
+        st.markdown("Love this project? We're open source! Feel free to contribute on [GitHub](https://github.com/Aditya-afk-hue/).", unsafe_allow_html=True)
 
 
     user_id = get_current_user_id()
@@ -412,12 +403,10 @@ else:
                     t_col1, t_col2 = st.columns(2)
                     if t_col1.button(f"Explain '{topic}'", key=f"explain_{topic}", use_container_width=True):
                         st.session_state.navigate_to = "✨ Explain a Topic"
-                        # BUG FIX: Use the 'topic' variable from the current loop
                         st.session_state.prefill_topic = topic
                         st.rerun()
                     if t_col2.button(f"Quiz me on '{topic}'", key=f"quiz_{topic}", use_container_width=True):
                         st.session_state.navigate_to = "🧩 Interactive Quiz"
-                        # BUG FIX: Use the 'topic' variable from the current loop
                         st.session_state.prefill_topic = topic
                         st.rerun()
 
@@ -528,7 +517,6 @@ else:
                         get_and_store_topic(final_notes)
                     st.markdown(summary)
 
-    # ---  revamped quiz section ---
     elif st.session_state.current_task == "🧩 Interactive Quiz":
         if 'quiz_data' not in st.session_state:
             if "prefill_topic" in st.session_state:
@@ -566,7 +554,6 @@ else:
                             st.error("AI returned an invalid format. Please try again.")
                             st.code(quiz_json_str)
         
-        # Quiz gameplay
         elif 'final_score_info' not in st.session_state:
             st.subheader(f"Quiz on: {st.session_state.get('current_quiz_topic', 'General Knowledge')}")
             
@@ -633,7 +620,6 @@ else:
                     st.session_state.pop(key, None)
                 st.rerun()
     
-    # --- revamped flashcard section ---
     elif st.session_state.current_task == "🃏 Kinetic Flashcards":
         if 'flashcards_data' not in st.session_state:
             with st.form("flashcard_form"):
