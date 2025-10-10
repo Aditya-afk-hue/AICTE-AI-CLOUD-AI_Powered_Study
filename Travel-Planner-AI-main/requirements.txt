@@ -1,3 +1,0 @@
-streamlit
-openai
-google-generativeai
