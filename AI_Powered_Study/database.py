@@ -80,6 +80,7 @@ class RoadmapItem(Base):
     sub_topic = Column(String)
     is_completed = Column(Boolean, default=False)
     roadmap_id = Column(Integer, ForeignKey("study_roadmaps.id"))
+    day_number = Column(Integer, nullable=False)
     
     roadmap = relationship("StudyRoadmap", back_populates="items")
 
