@@ -43,18 +43,28 @@ class AIClient:
         except Exception as e:
             return f"❌ Gemini API Error: {e}"
             
+# ai_client.py
+
     def generate_roadmap_json(self, topic, days):
-        # ... (this function remains the same)
         prompt = f"""
         You are a curriculum planning expert who only speaks JSON.
-        Your task is to generate a structured learning roadmap.
+        Your task is to generate a structured, day-by-day learning roadmap.
 
         **Instructions:**
         1. Create a learning plan for the topic "{topic}" to be completed in {days} days.
-        2. Break the main topic down into a list of 10 to 15 logical, ordered sub-topics that can be learned sequentially.
-        3. The output MUST be a valid JSON array of strings (e.g., `["Introduction to Python", "Variables and Data Types", "Control Flow"]`).
-        4. CRITICAL: Do NOT include any introductory text, concluding text, explanations, or markdown formatting like ```json.
-        5. The entire response must be a single JSON array starting with `[` and ending with `]`.
+        2. Distribute the sub-topics logically across the {days} days. Ensure a reasonable number of topics per day.
+        3. The output MUST be a valid JSON object.
+        4. The keys of the object MUST be strings like "Day 1", "Day 2", ..., "Day {days}".
+        5. The value for each day's key MUST be an array of strings, where each string is a sub-topic for that day.
+        6. CRITICAL: Do NOT include any introductory text, concluding text, explanations, or markdown formatting like ```json.
+        7. The entire response must be a single JSON object starting with {{ and ending with }}.
+
+        **Example for "Python Basics" in 3 days:**
+        {{
+        "Day 1": ["Introduction to Python", "Variables and Data Types", "Your First Program"],
+        "Day 2": ["Control Flow (If, Else)", "Loops (For, While)"],
+        "Day 3": ["Functions", "Basic Data Structures (Lists, Dictionaries)"]
+        }}
         """
         return self.ask_gemini(prompt)
 
