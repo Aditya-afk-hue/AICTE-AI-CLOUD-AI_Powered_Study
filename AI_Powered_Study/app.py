@@ -162,24 +162,39 @@ st.markdown("""
         color: white;
         transform: rotateY(180deg);
     }
+
+    /* --- FIX for Expander/Expander Icon Focus Ring --- */
+    [data-testid="stExpander"] summary:focus,
+    [data-testid="stExpander"] summary:focus-visible {
+        outline: none !important;
+        box-shadow: 0 0 0 2px #4F46E5; /* Custom focus ring using box-shadow */
+        border-radius: 0.5rem;
+    }
+
+    /* --- FINAL FIX for Icon Text Bug --- */
+    /* This robustly targets and hides Streamlit's default arrow icon container,
+       which was incorrectly rendering as text. Your custom emoji will remain. */
+    [data-testid="stExpander"] [data-testid="stExpanderHeader"] > :first-child {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 
 # --- 2. APP CONSTANTS ---
-TASK_OPTIONS = {
-    "📊 Learning Dashboard": "fa-solid fa-chart-line",
-    "🧠 Spaced Repetition Review": "fa-solid fa-brain",
-    "🗺️ AI Study Planner": "fa-solid fa-map-signs",
-    "🌐 Community Hub": "fa-solid fa-users",
-    "---": "---",
-    "💬 AI Tutor Chat": "fa-solid fa-comments",
-    "✨ Explain a Topic": "fa-solid fa-lightbulb",
-    "📝 Summarize Notes": "fa-solid fa-file-alt",
-    "🧩 Interactive Quiz": "fa-solid fa-puzzle-piece",
-    "🃏 Kinetic Flashcards": "fa-solid fa-layer-group"
-}
-TASK_MAP = {k.split(" ")[0].lower().replace("📊", "").replace("🧠", "").replace("🗺️", "").replace("🌐", "").replace("💬", "").replace("✨", "").replace("📝", "").replace("🧩", "").replace("🃏", ""): k for k, v in TASK_OPTIONS.items() if v != "---"}
+# UI FIX: Simplified the task options to a list as the icon classes were not being used
+TASK_OPTIONS = [
+    "📊 Learning Dashboard",
+    "🧠 Spaced Repetition Review",
+    "🗺️ AI Study Planner",
+    "🌐 Community Hub",
+    "---",
+    "💬 AI Tutor Chat",
+    "✨ Explain a Topic",
+    "📝 Summarize Notes",
+    "🧩 Interactive Quiz",
+    "🃏 Kinetic Flashcards"
+]
 
 
 # --- 3. INITIALIZE AI CLIENT ---
@@ -269,10 +284,29 @@ else:
 
 
     def extract_json_from_string(text):
-        match = re.search(r"```json\s*([\s\S]*?)\s*```|([\s\S]*\[[\s\S]*\]|[\s\S]*\{[\s\S]*\})", text)
-        if match: return match.group(1) if match.group(1) else match.group(2)
+        """Finds and extracts the first valid JSON object or array from a string."""
+        match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+        if match:
+            return match.group(1).strip()
+        
+        first_bracket = -1
+        last_bracket = -1
+        
+        first_curly = text.find('{')
+        first_square = text.find('[')
+        
+        if first_curly != -1 and (first_square == -1 or first_curly < first_square):
+            first_bracket = first_curly
+            last_bracket = text.rfind('}')
+        elif first_square != -1:
+            first_bracket = first_square
+            last_bracket = text.rfind(']')
+
+        if first_bracket != -1 and last_bracket != -1:
+            return text[first_bracket : last_bracket + 1].strip()
+
         return text
-    
+
     def get_and_store_topic(content, is_explicit_topic=False):
         user_id = get_current_user_id()
         if is_explicit_topic:
@@ -341,7 +375,7 @@ else:
                 for key in keys_to_clear:
                     st.session_state.pop(key, None)
 
-        for task_name in TASK_OPTIONS.keys():
+        for task_name in TASK_OPTIONS:
             if task_name == "---":
                 st.markdown("---")
                 continue
@@ -733,40 +767,60 @@ else:
                         with st.spinner("🤖 AI is designing your learning journey..."):
                             roadmap_json = client.generate_roadmap_json(topic, days)
                             try:
-                                sub_topics = json.loads(extract_json_from_string(roadmap_json))
+                                roadmap_data = json.loads(extract_json_from_string(roadmap_json))
                                 new_roadmap = StudyRoadmap(topic=topic, user_id=user_id)
                                 db.add(new_roadmap)
-                                for sub in sub_topics: db.add(RoadmapItem(sub_topic=sub, roadmap=new_roadmap))
+                                db.flush()
+                                
+                                for day_str, topics_for_day in roadmap_data.items():
+                                    day_num_match = re.search(r'\d+', day_str)
+                                    if not day_num_match: continue
+                                    day_num = int(day_num_match.group())
+                                    
+                                    for sub_topic in topics_for_day:
+                                        db.add(RoadmapItem(sub_topic=sub_topic, roadmap_id=new_roadmap.id, day_number=day_num))
+                                
                                 db.commit()
                                 get_and_store_topic(topic, is_explicit_topic=True)
                                 st.success("Your plan is ready!")
                                 st.rerun()
-                            except json.JSONDecodeError:
-                                st.error("AI returned invalid format. Please try again."); st.code(roadmap_json)
+                            except (json.JSONDecodeError, AttributeError, TypeError, OperationalError) as e:
+                                st.error(f"AI returned an invalid format or a database error occurred. Please try again. Error: {e}"); st.code(roadmap_json)
         else:
             roadmap = existing_roadmaps[-1]
             st.subheader(f"Your Roadmap: {roadmap.topic}")
+
             def toggle_completion(item_id):
                 item = db.query(RoadmapItem).filter(RoadmapItem.id == item_id).first()
                 if item: item.is_completed = not item.is_completed; db.commit()
             
-            for item in roadmap.items:
-                with st.container(border=True):
-                    col1, col2, col3, col4 = st.columns([0.1, 0.5, 0.2, 0.2])
-                    with col1: 
-                        st.checkbox("", item.is_completed, key=f"check_{item.id}", on_change=toggle_completion, args=(item.id,), label_visibility="collapsed")
-                    with col2: 
-                        st.markdown(f"~~**{item.sub_topic}**~~" if item.is_completed else f"**{item.sub_topic}**")
-                    with col3:
-                        if st.button("✨ Explain", key=f"explain_{item.id}", use_container_width=True):
-                            st.session_state.navigate_to = "✨ Explain a Topic"
-                            st.session_state.prefill_topic = item.sub_topic
-                            st.rerun()
-                    with col4:
-                        if st.button("🧩 Quiz", key=f"quiz_{item.id}", use_container_width=True):
-                            st.session_state.navigate_to = "🧩 Interactive Quiz"
-                            st.session_state.prefill_topic = item.sub_topic
-                            st.rerun()
+            items_by_day = {}
+            if roadmap.items:
+                 for item in sorted(roadmap.items, key=lambda x: x.day_number if x.day_number is not None else -1):
+                    if item.day_number not in items_by_day:
+                        items_by_day[item.day_number] = []
+                    items_by_day[item.day_number].append(item)
+
+            for day_num in sorted(items_by_day.keys()):
+                # UI FIX: Added a calendar icon to the expander to fix rendering bugs
+                with st.expander(f"**Day {day_num}**", expanded=True, icon="🗓️"):
+                    for item in items_by_day[day_num]:
+                        with st.container(border=True):
+                            col1, col2, col3, col4 = st.columns([0.1, 0.5, 0.2, 0.2])
+                            with col1: 
+                                st.checkbox("", item.is_completed, key=f"check_{item.id}", on_change=toggle_completion, args=(item.id,), label_visibility="collapsed")
+                            with col2: 
+                                st.markdown(f"~~**{item.sub_topic}**~~" if item.is_completed else f"**{item.sub_topic}**")
+                            with col3:
+                                if st.button("✨ Explain", key=f"explain_{item.id}", use_container_width=True):
+                                    st.session_state.navigate_to = "✨ Explain a Topic"
+                                    st.session_state.prefill_topic = item.sub_topic
+                                    st.rerun()
+                            with col4:
+                                if st.button("🧩 Quiz", key=f"quiz_{item.id}", use_container_width=True):
+                                    st.session_state.navigate_to = "🧩 Interactive Quiz"
+                                    st.session_state.prefill_topic = item.sub_topic
+                                    st.rerun()
                             
             if st.button("Create a New Roadmap", use_container_width=True):
                 for r in existing_roadmaps: db.delete(r)
