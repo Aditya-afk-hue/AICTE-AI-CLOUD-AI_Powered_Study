@@ -16,8 +16,7 @@ Brainstorm Buddy is an intelligent, all-in-one learning application designed to 
 
 You can access the live, deployed version of the application here:
 
-**[https://your-streamlit-share-url.streamlit.app/](https://www.google.com/search?q=https://your-streamlit-share-url.streamlit.app/)** *(Replace with your actual Streamlit Community Cloud URL)*
-
+**[https://aicte-ai-cloud-aipoweredstudytabreadme-ov-file-afawfvr8ysjptq6.streamlit.app/)** 
 -----
 
 ## ✨ Key Features
@@ -121,5 +120,6 @@ Contributions are welcome\! If you have suggestions for improvements or want to 
 -----
 
 ## 📄 License
+
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
