@@ -868,4 +868,5 @@ else:
     # --- 8. FOOTER ---
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("---")
-    st.caption("🚀 Developed by Brainstorm Buddy team | Powered by Gemini AI | © 2025")
+    st.caption("🚀 Developed by Aditya Ranjan Samal | Powered by Gemini AI | © 2025")
+
