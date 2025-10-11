@@ -105,14 +105,6 @@ Your web browser will automatically open a new tab with the Brainstorm Buddy app
 
 -----
 
-## 📸 Screenshots
-
-Here’s a glimpse of the Brainstorm Buddy interface.
-
-*The AI Study Planner provides a clean, interactive roadmap for your learning journey.*
-
------
-
 ## 🤝 Contributing
 
 Contributions are welcome\! If you have suggestions for improvements or want to fix a bug, please feel free to fork the repository, make your changes, and open a pull request.
@@ -123,3 +115,4 @@ Contributions are welcome\! If you have suggestions for improvements or want to 
 
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
