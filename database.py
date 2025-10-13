@@ -17,6 +17,8 @@ class User(Base):
     quiz_results = relationship("QuizResult", back_populates="user")
     decks = relationship("FlashcardDeck", back_populates="user")
     roadmaps = relationship("StudyRoadmap", back_populates="user")
+    # ADDED RELATIONSHIP FOR QUIZ COLLECTIONS
+    quiz_collections = relationship("QuizCollection", back_populates="user")
 
 class StudyTopic(Base):
     __tablename__ = "study_topics"
@@ -38,6 +40,30 @@ class QuizResult(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     
     user = relationship("User", back_populates="quiz_results")
+
+# --- NEW MODELS FOR SAVING QUIZZES ---
+class QuizCollection(Base):
+    __tablename__ = "quiz_collections"
+    id = Column(Integer, primary_key=True, index=True)
+    topic_name = Column(String, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    is_public = Column(Boolean, default=False, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    user = relationship("User", back_populates="quiz_collections")
+    questions = relationship("QuizQuestion", back_populates="collection", cascade="all, delete-orphan")
+
+class QuizQuestion(Base):
+    __tablename__ = "quiz_questions"
+    id = Column(Integer, primary_key=True, index=True)
+    question_text = Column(Text, nullable=False)
+    # Storing options as a JSON string
+    options = Column(Text, nullable=False) 
+    correct_answer = Column(String, nullable=False)
+    collection_id = Column(Integer, ForeignKey("quiz_collections.id"))
+    
+    collection = relationship("QuizCollection", back_populates="questions")
+# ----------------------------------------
 
 class FlashcardDeck(Base):
     __tablename__ = "flashcard_decks"
@@ -84,8 +110,6 @@ class RoadmapItem(Base):
     
     roadmap = relationship("StudyRoadmap", back_populates="items")
 
-# --- NEW Models (Inferred from Error Log) ---
-
 class RoadmapProject(Base):
     __tablename__ = 'roadmap_projects'
     id = Column(Integer, primary_key=True, index=True)
@@ -109,9 +133,6 @@ class KnowledgeEdge(Base):
     id = Column(Integer, primary_key=True, index=True)
     source_id = Column(Integer, ForeignKey('knowledge_nodes.id'), nullable=False)
     target_id = Column(Integer, ForeignKey('knowledge_nodes.id'), nullable=False)
-    
-    # FIX: The column was likely named 'relationship', which conflicts with the 
-    # SQLAlchemy function. Renaming it to 'label' resolves the TypeError.
     label = Column(String, nullable=False) 
 
     source_node = relationship("KnowledgeNode", foreign_keys=[source_id], back_populates="source_edges")
