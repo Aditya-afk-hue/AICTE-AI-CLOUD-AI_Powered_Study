@@ -185,9 +185,9 @@ st.markdown("""
 # UI FIX: Simplified the task options to a list as the icon classes were not being used
 TASK_OPTIONS = [
     "📊 Learning Dashboard",
-    "🧠 Spaced Repetition Review",
+    "📚 My Collections",
     "🗺️ AI Study Planner",
-    "🌐 Community Hub",
+    "🌐 Explore Community",
     "---",
     "💬 AI Tutor Chat",
     "✨ Explain a Topic",
@@ -444,35 +444,87 @@ else:
                         st.session_state.prefill_topic = topic
                         st.rerun()
 
-    elif st.session_state.current_task == "🧠 Spaced Repetition Review":
-        due_cards = db.query(Flashcard).join(FlashcardDeck).filter(FlashcardDeck.user_id == user_id, Flashcard.next_review_date <= datetime.date.today()).all()
-        if 'review_queue' not in st.session_state:
-            st.session_state.review_queue = due_cards
-        
-        if not st.session_state.review_queue:
-            st.success("🎉 All done! You have no cards to review today.")
-        else:
-            st.info(f"You have **{len(st.session_state.review_queue)}** cards to review.")
-            current_card = st.session_state.review_queue[0]
-            with st.container(border=True):
-                st.markdown(f"<div style='font-size: 24px; text-align: center; min-height: 100px; display: flex; align-items: center; justify-content: center;'>{current_card.front}</div>", unsafe_allow_html=True)
-                if st.button("Show Answer", use_container_width=True, key="show_answer_btn"):
-                    st.session_state.show_answer = True
-                if st.session_state.get('show_answer'):
-                    st.markdown("---")
-                    st.markdown(f"<div style='font-size: 20px; text-align: center; color: #818CF8;'>{current_card.back}</div>", unsafe_allow_html=True)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.write("How well did you remember?")
-                    r_col1, r_col2, r_col3 = st.columns(3)
-                    def handle_review(quality_score):
-                        update_card(current_card, quality_score)
+    elif st.session_state.current_task == "📚 My Collections":
+        tab1, tab2, tab3 = st.tabs(["Due for Review", "My Flashcard Decks", "My Saved Quizzes"])
+
+        with tab1:
+            due_cards = db.query(Flashcard).join(FlashcardDeck).filter(FlashcardDeck.user_id == user_id, Flashcard.next_review_date <= datetime.date.today()).all()
+            if 'review_queue' not in st.session_state:
+                st.session_state.review_queue = due_cards
+            
+            if not st.session_state.review_queue:
+                st.success("🎉 All done! You have no cards to review today.")
+            else:
+                st.info(f"You have **{len(st.session_state.review_queue)}** cards to review.")
+                current_card = st.session_state.review_queue[0]
+                with st.container(border=True):
+                    st.markdown(f"<div style='font-size: 24px; text-align: center; min-height: 100px; display: flex; align-items: center; justify-content: center;'>{current_card.front}</div>", unsafe_allow_html=True)
+                    if st.button("Show Answer", use_container_width=True, key="show_answer_btn"):
+                        st.session_state.show_answer = True
+                    if st.session_state.get('show_answer'):
+                        st.markdown("---")
+                        st.markdown(f"<div style='font-size: 20px; text-align: center; color: #818CF8;'>{current_card.back}</div>", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.write("How well did you remember?")
+                        r_col1, r_col2, r_col3 = st.columns(3)
+                        def handle_review(quality_score):
+                            update_card(current_card, quality_score)
+                            db.commit()
+                            st.session_state.review_queue.pop(0)
+                            st.session_state.show_answer = False
+                            st.rerun()
+                        if r_col1.button("🟥 Hard", use_container_width=True): handle_review(0)
+                        if r_col2.button("🟨 Good", use_container_width=True): handle_review(3)
+                        if r_col3.button("🟩 Easy", use_container_width=True): handle_review(5)
+
+        with tab2:
+            st.subheader("My Flashcard Decks")
+            my_decks = db.query(FlashcardDeck).filter(FlashcardDeck.user_id == user_id).all()
+            if not my_decks:
+                st.info("You haven't saved any decks. Go to 'Kinetic Flashcards' to create and save a new one!")
+            for deck in my_decks:
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([0.6, 0.2, 0.2])
+                    c1.write(f"**{deck.topic_name}** ({len(deck.cards)} cards)")
+                    # TODO: Add a "Study" button logic
+                    if c2.button("Study Deck", key=f"study_deck_{deck.id}", use_container_width=True):
+                        st.warning("Full deck study mode coming soon!")
+                    if c3.button("Delete", key=f"del_deck_{deck.id}", use_container_width=True):
+                        db.delete(deck)
                         db.commit()
-                        st.session_state.review_queue.pop(0)
-                        st.session_state.show_answer = False
                         st.rerun()
-                    if r_col1.button("🟥 Hard", use_container_width=True): handle_review(0)
-                    if r_col2.button("🟨 Good", use_container_width=True): handle_review(3)
-                    if r_col3.button("🟩 Easy", use_container_width=True): handle_review(5)
+
+        with tab3:
+            st.subheader("My Saved Quizzes")
+            my_quizzes = db.query(QuizCollection).filter(QuizCollection.user_id == user_id).all()
+            if not my_quizzes:
+                st.info("You haven't saved any quizzes yet. After taking a quiz, you'll get an option to save it!")
+            for quiz in my_quizzes:
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([0.6, 0.2, 0.2])
+                    c1.write(f"**{quiz.topic_name}** ({len(quiz.questions)} questions)")
+                    
+                    if c2.button("Take Quiz", key=f"take_{quiz.id}", use_container_width=True):
+                        quiz_data = []
+                        for q in quiz.questions:
+                            quiz_data.append({
+                                "question": q.question_text,
+                                "options": json.loads(q.options),
+                                "answer": q.correct_answer
+                            })
+                        st.session_state.quiz_data = quiz_data
+                        st.session_state.current_quiz_topic = quiz.topic_name
+                        st.session_state.current_question_index = 0
+                        st.session_state.score = 0
+                        st.session_state.user_answers = [None] * len(quiz_data)
+                        st.session_state.answer_submitted = False
+                        st.session_state.navigate_to = "🧩 Interactive Quiz"
+                        st.rerun()
+
+                    if c3.button("Delete", key=f"del_{quiz.id}", use_container_width=True):
+                        db.delete(quiz)
+                        db.commit()
+                        st.rerun()
 
     elif st.session_state.current_task == "💬 AI Tutor Chat":
         uploaded_file = st.file_uploader("Upload a document for context (any type)", type=None, key="chat_uploader")
@@ -552,95 +604,40 @@ else:
                     st.markdown(summary)
 
     elif st.session_state.current_task == "🧩 Interactive Quiz":
-        # --- Main Quiz Taking Logic ---
         if 'quiz_data' not in st.session_state:
-            # --- UI for Generating or Selecting a Quiz ---
-            tab1, tab2, tab3 = st.tabs(["Generate New Quiz", "My Saved Quizzes", "Community Quizzes"])
-
-            with tab1:
-                with st.form("quiz_generation_form"):
-                    st.subheader("Generate a New Quiz")
-                    quiz_text_from_area = st.text_area("Paste text or enter a topic to be quizzed on.", height=250, key="quiz_topic_input")
-                    uploaded_file = st.file_uploader("Or upload a document to generate a quiz from", type=None)
+            with st.form("quiz_generation_form"):
+                st.subheader("Generate a New Quiz")
+                quiz_text_from_area = st.text_area("Paste text or enter a topic to be quizzed on.", height=250, key="quiz_topic_input")
+                uploaded_file = st.file_uploader("Or upload a document to generate a quiz from", type=None)
+                
+                num_q = st.slider("Number of Questions:", 3, 10, 5)
+                submitted = st.form_submit_button("Generate Quiz", type="primary", use_container_width=True)
+                if submitted:
+                    final_quiz_text = ""
+                    if uploaded_file is not None:
+                        final_quiz_text = extract_file_text(uploaded_file)
+                    else:
+                        final_quiz_text = quiz_text_from_area
                     
-                    num_q = st.slider("Number of Questions:", 3, 10, 5)
-                    submitted = st.form_submit_button("Generate Quiz", type="primary", use_container_width=True)
-                    if submitted:
-                        final_quiz_text = ""
-                        if uploaded_file is not None:
-                            final_quiz_text = extract_file_text(uploaded_file)
-                        else:
-                            final_quiz_text = quiz_text_from_area
-                        
-                        is_valid, msg = validate_text_input(final_quiz_text, "Quiz Text")
-                        if not is_valid:
-                            st.error(msg)
-                        else:
-                            with st.spinner("🤖 AI is crafting your quiz..."):
-                                quiz_json_str = client.generate_quiz(final_quiz_text, num_q)
-                                st.session_state.current_quiz_topic = get_and_store_topic(final_quiz_text)
-                            try:
-                                st.session_state.quiz_to_save = json.loads(extract_json_from_string(quiz_json_str))
-                                st.session_state.quiz_data = st.session_state.quiz_to_save
-                                st.session_state.current_question_index = 0
-                                st.session_state.score = 0
-                                st.session_state.user_answers = [None] * len(st.session_state.quiz_data)
-                                st.session_state.answer_submitted = False
-                                st.rerun()
-                            except (json.JSONDecodeError, TypeError):
-                                st.error("AI returned an invalid format. Please try again.")
-                                st.code(quiz_json_str)
-            with tab2:
-                st.subheader("My Saved Quizzes")
-                my_quizzes = db.query(QuizCollection).filter(QuizCollection.user_id == user_id).all()
-                if not my_quizzes:
-                    st.info("You haven't saved any quizzes yet. After taking a quiz, you'll get an option to save it here!")
-                for quiz in my_quizzes:
-                    with st.container(border=True):
-                        c1, c2, c3 = st.columns([0.6, 0.2, 0.2])
-                        c1.write(f"**{quiz.topic_name}** ({len(quiz.questions)} questions)")
-                        
-                        if c2.button("Take Quiz", key=f"take_{quiz.id}", use_container_width=True):
-                            quiz_data = []
-                            for q in quiz.questions:
-                                quiz_data.append({
-                                    "question": q.question_text,
-                                    "options": json.loads(q.options),
-                                    "answer": q.correct_answer
-                                })
-                            st.session_state.quiz_data = quiz_data
-                            st.session_state.current_quiz_topic = quiz.topic_name
+                    is_valid, msg = validate_text_input(final_quiz_text, "Quiz Text")
+                    if not is_valid:
+                        st.error(msg)
+                    else:
+                        with st.spinner("🤖 AI is crafting your quiz..."):
+                            quiz_json_str = client.generate_quiz(final_quiz_text, num_q)
+                            st.session_state.current_quiz_topic = get_and_store_topic(final_quiz_text)
+                        try:
+                            st.session_state.quiz_to_save = json.loads(extract_json_from_string(quiz_json_str))
+                            st.session_state.quiz_data = st.session_state.quiz_to_save
                             st.session_state.current_question_index = 0
                             st.session_state.score = 0
-                            st.session_state.user_answers = [None] * len(quiz_data)
+                            st.session_state.user_answers = [None] * len(st.session_state.quiz_data)
                             st.session_state.answer_submitted = False
                             st.rerun()
-
-                        if c3.button("Delete", key=f"del_{quiz.id}", use_container_width=True):
-                            db.delete(quiz)
-                            db.commit()
-                            st.rerun()
-
-            with tab3:
-                st.subheader("Community Quizzes")
-                public_quizzes = db.query(QuizCollection).filter(QuizCollection.is_public == True, QuizCollection.user_id != user_id).all()
-                if not public_quizzes:
-                    st.info("No public quizzes from other users are available yet.")
-                for quiz in public_quizzes:
-                    with st.container(border=True):
-                        c1, c2 = st.columns([0.7, 0.3])
-                        creator = quiz.user.username if quiz.user else "Unknown"
-                        c1.write(f"**{quiz.topic_name}** by {creator} ({len(quiz.questions)} questions)")
-                        if c2.button("Add to My Quizzes", key=f"copy_{quiz.id}", use_container_width=True):
-                            cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
-                            db.add(cloned_quiz)
-                            db.flush()
-                            for q in quiz.questions:
-                                db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
-                            db.commit()
-                            st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
-                            st.rerun()
-
+                        except (json.JSONDecodeError, TypeError):
+                            st.error("AI returned an invalid format. Please try again.")
+                            st.code(quiz_json_str)
+        
         elif 'final_score_info' not in st.session_state:
             st.subheader(f"Quiz on: {st.session_state.get('current_quiz_topic', 'General Knowledge')}")
             
@@ -701,7 +698,6 @@ else:
             with score_cols[1]: st.metric("Incorrect", f"{info['total'] - info['score']}")
             with score_cols[2]: st.metric("Final Score", f"{info['percent']}%")
             
-            # --- SAVE QUIZ FORM ---
             if st.session_state.get("quiz_to_save"):
                 with st.form("save_quiz_form"):
                     st.subheader("Save Quiz to Collection")
@@ -726,8 +722,7 @@ else:
                         st.session_state.pop("quiz_to_save", None)
                         st.rerun()
 
-
-            if st.button("⬅️ Take a New Quiz", use_container_width=True):
+            if st.button("⬅️ Back to Quizzes", use_container_width=True):
                 keys_to_clear = ['quiz_data', 'final_score_info', 'current_question_index', 'score', 'user_answers', 'answer_submitted', 'quiz_to_save']
                 for key in keys_to_clear:
                     st.session_state.pop(key, None)
@@ -824,7 +819,7 @@ else:
                             db.add(Flashcard(front=card['front'], back=card['back'], deck_id=new_deck.id))
                         
                         db.commit()
-                        st.success(f"Deck '{deck_topic}' saved! Study it in the 'Review' section.")
+                        st.success(f"Deck '{deck_topic}' saved! Study it in 'My Collections'.")
                         
                         keys_to_clear = ['flashcards_data', 'current_flashcard_index', 'card_flipped']
                         for key in keys_to_clear:
@@ -881,7 +876,6 @@ else:
                     items_by_day[item.day_number].append(item)
 
             for day_num in sorted(items_by_day.keys()):
-                # UI FIX: Added a calendar icon to the expander to fix rendering bugs
                 with st.expander(f"**Day {day_num}**", expanded=True, icon="🗓️"):
                     for item in items_by_day[day_num]:
                         with st.container(border=True):
@@ -905,44 +899,67 @@ else:
                 for r in existing_roadmaps: db.delete(r)
                 db.commit(); st.rerun()
 
-    elif st.session_state.current_task == "🌐 Community Hub":
-        st.write("Explore flashcard decks created by other users.")
-        try:
-            public_decks = db.query(FlashcardDeck).filter(FlashcardDeck.is_public == True, FlashcardDeck.user_id != user_id).all()
-        except OperationalError:
-            st.error("⚠️ Database Schema Mismatch!")
-            st.info("Your database file is out of sync with the new community features. To fix this, please delete the file 'brainstorm_buddy.db' and restart the application. This will create a fresh database with the correct structure. (Note: This will reset existing user data).")
-            public_decks = []
+    elif st.session_state.current_task == "🌐 Explore Community":
+        tab1, tab2 = st.tabs(["Community Decks", "Community Quizzes"])
 
-        if not public_decks:
-            st.info("No public decks available yet. Create a deck and make it public to share with the community!")
-        else:
-            for deck in public_decks:
+        with tab1:
+            st.subheader("Community Flashcard Decks")
+            try:
+                public_decks = db.query(FlashcardDeck).filter(FlashcardDeck.is_public == True, FlashcardDeck.user_id != user_id).all()
+            except OperationalError:
+                st.error("⚠️ Database Schema Mismatch!")
+                st.info("Your database file is out of sync with the new community features. To fix this, please delete the file 'brainstorm_buddy.db' and restart the application. This will create a fresh database with the correct structure. (Note: This will reset existing user data).")
+                public_decks = []
+
+            if not public_decks:
+                st.info("No public decks available yet. Create a deck and make it public to share with the community!")
+            else:
+                for deck in public_decks:
+                    with st.container(border=True):
+                        col1, col2 = st.columns([0.8, 0.2])
+                        with col1:
+                            st.subheader(f"Deck: {deck.topic_name}")
+                            creator = deck.user.username if deck.user else "Unknown"
+                            st.caption(f"{len(deck.cards)} cards | Created by: {creator}")
+                        with col2:
+                            if st.button("Add to My Decks", key=f"study_{deck.id}", use_container_width=True):
+                                cloned_deck = FlashcardDeck(
+                                    topic_name=deck.topic_name,
+                                    user_id=user_id,
+                                    is_public=False
+                                )
+                                db.add(cloned_deck)
+                                db.flush()
+
+                                for card in deck.cards:
+                                    db.add(Flashcard(
+                                        front=card.front,
+                                        back=card.back,
+                                        deck_id=cloned_deck.id
+                                    ))
+                                
+                                db.commit()
+                                st.success(f"Deck '{deck.topic_name}' was added to your collection!")
+        
+        with tab2:
+            st.subheader("Community Quizzes")
+            public_quizzes = db.query(QuizCollection).filter(QuizCollection.is_public == True, QuizCollection.user_id != user_id).all()
+            if not public_quizzes:
+                st.info("No public quizzes from other users are available yet.")
+            for quiz in public_quizzes:
                 with st.container(border=True):
-                    col1, col2 = st.columns([0.8, 0.2])
-                    with col1:
-                        st.subheader(f"Deck: {deck.topic_name}")
-                        creator = deck.user.username if deck.user else "Unknown"
-                        st.caption(f"{len(deck.cards)} cards | Created by: {creator}")
-                    with col2:
-                        if st.button("Study Deck", key=f"study_{deck.id}", use_container_width=True):
-                            cloned_deck = FlashcardDeck(
-                                topic_name=deck.topic_name,
-                                user_id=user_id,
-                                is_public=False
-                            )
-                            db.add(cloned_deck)
-                            db.flush()
-
-                            for card in deck.cards:
-                                db.add(Flashcard(
-                                    front=card.front,
-                                    back=card.back,
-                                    deck_id=cloned_deck.id
-                                ))
-                            
-                            db.commit()
-                            st.success(f"Deck '{deck.topic_name}' was added to your collection!")
+                    c1, c2 = st.columns([0.7, 0.3])
+                    creator = quiz.user.username if quiz.user else "Unknown"
+                    c1.write(f"**{quiz.topic_name}** by {creator} ({len(quiz.questions)} questions)")
+                    if c2.button("Add to My Quizzes", key=f"copy_{quiz.id}", use_container_width=True):
+                        cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
+                        db.add(cloned_quiz)
+                        db.flush()
+                        for q in quiz.questions:
+                            db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
+                        db.commit()
+                        st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
+                        st.rerun()
 
     # --- 8. FOOTER ---
     st.markdown("<br><br>", unsafe_allow_html=True)
