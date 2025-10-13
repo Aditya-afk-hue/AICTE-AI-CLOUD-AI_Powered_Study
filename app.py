@@ -486,9 +486,8 @@ else:
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([0.6, 0.2, 0.2])
                     c1.write(f"**{deck.topic_name}** ({len(deck.cards)} cards)")
-                    # TODO: Add a "Study" button logic
                     if c2.button("Study Deck", key=f"study_deck_{deck.id}", use_container_width=True):
-                        st.warning("Full deck study mode coming soon!")
+                        st.warning("Full deck study mode coming soon! For now, cards due for review will appear in the 'Due for Review' tab.")
                     if c3.button("Delete", key=f"del_deck_{deck.id}", use_container_width=True):
                         db.delete(deck)
                         db.commit()
@@ -605,6 +604,10 @@ else:
 
     elif st.session_state.current_task == "🧩 Interactive Quiz":
         if 'quiz_data' not in st.session_state:
+            ## --- FIX 1: Prefill Quiz Topic from Dashboard ---
+            if "prefill_topic" in st.session_state:
+                st.session_state.quiz_topic_input = st.session_state.pop("prefill_topic")
+            
             with st.form("quiz_generation_form"):
                 st.subheader("Generate a New Quiz")
                 quiz_text_from_area = st.text_area("Paste text or enter a topic to be quizzed on.", height=250, key="quiz_topic_input")
@@ -905,7 +908,8 @@ else:
         with tab1:
             st.subheader("Community Flashcard Decks")
             try:
-                public_decks = db.query(FlashcardDeck).filter(FlashcardDeck.is_public == True, FlashcardDeck.user_id != user_id).all()
+                ## --- FIX 2: Correctly Display All Public Content ---
+                public_decks = db.query(FlashcardDeck).filter(FlashcardDeck.is_public == True).all()
             except OperationalError:
                 st.error("⚠️ Database Schema Mismatch!")
                 st.info("Your database file is out of sync with the new community features. To fix this, please delete the file 'brainstorm_buddy.db' and restart the application. This will create a fresh database with the correct structure. (Note: This will reset existing user data).")
@@ -915,6 +919,9 @@ else:
                 st.info("No public decks available yet. Create a deck and make it public to share with the community!")
             else:
                 for deck in public_decks:
+                    # Don't show the user's own decks in the community tab if they are viewing it
+                    if deck.user_id == user_id:
+                        continue
                     with st.container(border=True):
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
@@ -943,10 +950,13 @@ else:
         
         with tab2:
             st.subheader("Community Quizzes")
-            public_quizzes = db.query(QuizCollection).filter(QuizCollection.is_public == True, QuizCollection.user_id != user_id).all()
+            ## --- FIX 2: Correctly Display All Public Content ---
+            public_quizzes = db.query(QuizCollection).filter(QuizCollection.is_public == True).all()
             if not public_quizzes:
                 st.info("No public quizzes from other users are available yet.")
             for quiz in public_quizzes:
+                if quiz.user_id == user_id:
+                    continue
                 with st.container(border=True):
                     c1, c2 = st.columns([0.7, 0.3])
                     creator = quiz.user.username if quiz.user else "Unknown"
