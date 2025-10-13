@@ -908,7 +908,6 @@ else:
         with tab1:
             st.subheader("Community Flashcard Decks")
             try:
-                ## --- FIX 2: Correctly Display All Public Content ---
                 public_decks = db.query(FlashcardDeck).filter(FlashcardDeck.is_public == True).all()
             except OperationalError:
                 st.error("⚠️ Database Schema Mismatch!")
@@ -919,57 +918,59 @@ else:
                 st.info("No public decks available yet. Create a deck and make it public to share with the community!")
             else:
                 for deck in public_decks:
-                    # Don't show the user's own decks in the community tab if they are viewing it
-                    if deck.user_id == user_id:
-                        continue
+                    ## --- FIX: Removed "if deck.user_id == user_id: continue" to show all public content ---
                     with st.container(border=True):
                         col1, col2 = st.columns([0.8, 0.2])
                         with col1:
                             st.subheader(f"Deck: {deck.topic_name}")
                             creator = deck.user.username if deck.user else "Unknown"
-                            st.caption(f"{len(deck.cards)} cards | Created by: {creator}")
+                            # Show "(You)" if the deck belongs to the current user
+                            creator_tag = f"by {creator}" if deck.user_id != user_id else "by You"
+                            st.caption(f"{len(deck.cards)} cards | Created {creator_tag}")
                         with col2:
-                            if st.button("Add to My Decks", key=f"study_{deck.id}", use_container_width=True):
-                                cloned_deck = FlashcardDeck(
-                                    topic_name=deck.topic_name,
-                                    user_id=user_id,
-                                    is_public=False
-                                )
-                                db.add(cloned_deck)
-                                db.flush()
+                            # Don't show "Add" button for your own decks
+                            if deck.user_id != user_id:
+                                if st.button("Add to My Decks", key=f"study_{deck.id}", use_container_width=True):
+                                    cloned_deck = FlashcardDeck(
+                                        topic_name=deck.topic_name,
+                                        user_id=user_id,
+                                        is_public=False
+                                    )
+                                    db.add(cloned_deck)
+                                    db.flush()
 
-                                for card in deck.cards:
-                                    db.add(Flashcard(
-                                        front=card.front,
-                                        back=card.back,
-                                        deck_id=cloned_deck.id
-                                    ))
-                                
-                                db.commit()
-                                st.success(f"Deck '{deck.topic_name}' was added to your collection!")
+                                    for card in deck.cards:
+                                        db.add(Flashcard(
+                                            front=card.front,
+                                            back=card.back,
+                                            deck_id=cloned_deck.id
+                                        ))
+                                    
+                                    db.commit()
+                                    st.success(f"Deck '{deck.topic_name}' was added to your collection!")
         
         with tab2:
             st.subheader("Community Quizzes")
-            ## --- FIX 2: Correctly Display All Public Content ---
             public_quizzes = db.query(QuizCollection).filter(QuizCollection.is_public == True).all()
             if not public_quizzes:
-                st.info("No public quizzes from other users are available yet.")
+                st.info("No public quizzes are available yet.")
             for quiz in public_quizzes:
-                if quiz.user_id == user_id:
-                    continue
+                ## --- FIX: Removed "if quiz.user_id == user_id: continue" to show all public content ---
                 with st.container(border=True):
                     c1, c2 = st.columns([0.7, 0.3])
                     creator = quiz.user.username if quiz.user else "Unknown"
-                    c1.write(f"**{quiz.topic_name}** by {creator} ({len(quiz.questions)} questions)")
-                    if c2.button("Add to My Quizzes", key=f"copy_{quiz.id}", use_container_width=True):
-                        cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
-                        db.add(cloned_quiz)
-                        db.flush()
-                        for q in quiz.questions:
-                            db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
-                        db.commit()
-                        st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
-                        st.rerun()
+                    creator_tag = f"by {creator}" if quiz.user_id != user_id else "by You"
+                    c1.write(f"**{quiz.topic_name}** ({len(quiz.questions)} questions) {creator_tag}")
+                    if quiz.user_id != user_id:
+                        if c2.button("Add to My Quizzes", key=f"copy_{quiz.id}", use_container_width=True):
+                            cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
+                            db.add(cloned_quiz)
+                            db.flush()
+                            for q in quiz.questions:
+                                db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
+                            db.commit()
+                            st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
+                            st.rerun()
 
     # --- 8. FOOTER ---
     st.markdown("<br><br>", unsafe_allow_html=True)
