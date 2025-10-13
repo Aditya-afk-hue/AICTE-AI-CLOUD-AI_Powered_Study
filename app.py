@@ -604,7 +604,6 @@ else:
 
     elif st.session_state.current_task == "🧩 Interactive Quiz":
         if 'quiz_data' not in st.session_state:
-            ## --- FIX 1: Prefill Quiz Topic from Dashboard ---
             if "prefill_topic" in st.session_state:
                 st.session_state.quiz_topic_input = st.session_state.pop("prefill_topic")
             
@@ -918,36 +917,27 @@ else:
                 st.info("No public decks available yet. Create a deck and make it public to share with the community!")
             else:
                 for deck in public_decks:
-                    ## --- FIX: Removed "if deck.user_id == user_id: continue" to show all public content ---
                     with st.container(border=True):
-                        col1, col2 = st.columns([0.8, 0.2])
+                        col1, col2, col3 = st.columns([0.6, 0.2, 0.2])
                         with col1:
                             st.subheader(f"Deck: {deck.topic_name}")
                             creator = deck.user.username if deck.user else "Unknown"
-                            # Show "(You)" if the deck belongs to the current user
                             creator_tag = f"by {creator}" if deck.user_id != user_id else "by You"
                             st.caption(f"{len(deck.cards)} cards | Created {creator_tag}")
                         with col2:
-                            # Don't show "Add" button for your own decks
+                            if st.button("Study Deck", key=f"community_study_{deck.id}", use_container_width=True):
+                                st.warning("Full deck study mode coming soon!")
+                        with col3:
                             if deck.user_id != user_id:
-                                if st.button("Add to My Decks", key=f"study_{deck.id}", use_container_width=True):
-                                    cloned_deck = FlashcardDeck(
-                                        topic_name=deck.topic_name,
-                                        user_id=user_id,
-                                        is_public=False
-                                    )
+                                if st.button("Add to My Decks", key=f"community_add_deck_{deck.id}", use_container_width=True):
+                                    cloned_deck = FlashcardDeck(topic_name=deck.topic_name, user_id=user_id, is_public=False)
                                     db.add(cloned_deck)
                                     db.flush()
-
                                     for card in deck.cards:
-                                        db.add(Flashcard(
-                                            front=card.front,
-                                            back=card.back,
-                                            deck_id=cloned_deck.id
-                                        ))
-                                    
+                                        db.add(Flashcard(front=card.front, back=card.back, deck_id=cloned_deck.id))
                                     db.commit()
                                     st.success(f"Deck '{deck.topic_name}' was added to your collection!")
+                                    st.rerun()
         
         with tab2:
             st.subheader("Community Quizzes")
@@ -955,22 +945,37 @@ else:
             if not public_quizzes:
                 st.info("No public quizzes are available yet.")
             for quiz in public_quizzes:
-                ## --- FIX: Removed "if quiz.user_id == user_id: continue" to show all public content ---
                 with st.container(border=True):
-                    c1, c2 = st.columns([0.7, 0.3])
+                    c1, c2, c3 = st.columns([0.6, 0.2, 0.2])
                     creator = quiz.user.username if quiz.user else "Unknown"
                     creator_tag = f"by {creator}" if quiz.user_id != user_id else "by You"
                     c1.write(f"**{quiz.topic_name}** ({len(quiz.questions)} questions) {creator_tag}")
-                    if quiz.user_id != user_id:
-                        if c2.button("Add to My Quizzes", key=f"copy_{quiz.id}", use_container_width=True):
-                            cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
-                            db.add(cloned_quiz)
-                            db.flush()
+                    
+                    with c2:
+                        if st.button("Take Quiz", key=f"community_take_{quiz.id}", use_container_width=True):
+                            quiz_data = []
                             for q in quiz.questions:
-                                db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
-                            db.commit()
-                            st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
+                                quiz_data.append({"question": q.question_text, "options": json.loads(q.options), "answer": q.correct_answer})
+                            st.session_state.quiz_data = quiz_data
+                            st.session_state.current_quiz_topic = quiz.topic_name
+                            st.session_state.current_question_index = 0
+                            st.session_state.score = 0
+                            st.session_state.user_answers = [None] * len(quiz_data)
+                            st.session_state.answer_submitted = False
+                            st.session_state.navigate_to = "🧩 Interactive Quiz"
                             st.rerun()
+                    
+                    with c3:
+                        if quiz.user_id != user_id:
+                            if st.button("Add to My Quizzes", key=f"community_add_quiz_{quiz.id}", use_container_width=True):
+                                cloned_quiz = QuizCollection(topic_name=quiz.topic_name, user_id=user_id, is_public=False)
+                                db.add(cloned_quiz)
+                                db.flush()
+                                for q in quiz.questions:
+                                    db.add(QuizQuestion(question_text=q.question_text, options=q.options, correct_answer=q.correct_answer, collection_id=cloned_quiz.id))
+                                db.commit()
+                                st.success(f"Quiz '{quiz.topic_name}' added to your collection!")
+                                st.rerun()
 
     # --- 8. FOOTER ---
     st.markdown("<br><br>", unsafe_allow_html=True)
