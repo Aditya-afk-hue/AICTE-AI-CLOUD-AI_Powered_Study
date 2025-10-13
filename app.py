@@ -171,11 +171,23 @@ st.markdown("""
         border-radius: 0.5rem;
     }
 
-    /* --- FINAL FIX for Icon Text Bug --- */
-    /* This robustly targets and hides Streamlit's default arrow icon container,
-       which was incorrectly rendering as text. Your custom emoji will remain. */
+    /* --- FIX for Expander Icon Text Bug --- */
     [data-testid="stExpander"] [data-testid="stExpanderHeader"] > :first-child {
         display: none !important;
+    }
+
+    /* --- NEW FIX for Sidebar Toggle Icon --- */
+    /* Hide the original broken icon from the sidebar toggle button */
+    [data-testid="stToolbar"] button:first-child > svg {
+        display: none !important;
+    }
+    
+    /* Add the new hamburger menu icon */
+    [data-testid="stToolbar"] button:first-child::before {
+        content: '☰';
+        font-size: 24px;
+        color: #F8FAFC;
+        font-family: sans-serif;
     }
 </style>
 """, unsafe_allow_html=True)
